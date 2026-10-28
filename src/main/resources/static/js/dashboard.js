@@ -1,4 +1,4 @@
-﻿const API = "/api";
+const API = "https://roadaccidentsystem.onrender.com/api";
 let currentPage = 0;
 const pageSize = 10;
 let searchTimer;
@@ -51,7 +51,7 @@ $("csvFile").addEventListener("change", async (event) => {
     } catch (error) {
         showMessage(error.message || "Could not upload the CSV.", true);
     } finally {
-        button.innerHTML = "↑ &nbsp; Upload accident CSV";
+        button.innerHTML = "? &nbsp; Upload accident CSV";
         button.style.pointerEvents = "";
         event.target.value = "";
     }
@@ -256,3 +256,4 @@ $("refreshButton").addEventListener("click", () => {
 });
 
 loadDashboard();
+
