@@ -1,0 +1,206 @@
+
+package com.roadguard;
+
+import org.apache.commons.csv.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+@CrossOrigin(origins = {
+        "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app"
+})
+@RestController
+@RequestMapping("/api")
+public class AccidentController {
+
+    private volatile List<Map<String, String>> accidents = new ArrayList<>();
+
+    private volatile List<String> headers = new ArrayList<>();
+
+    @PostMapping("/upload")
+    public Map<String, Object> upload(
+            @RequestParam("file") MultipartFile file) {
+
+        if (file.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Please select a CSV file.");
+        }
+
+        String filename = file.getOriginalFilename();
+
+        if (filename == null ||
+                !filename.toLowerCase(Locale.ROOT).endsWith(".csv")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Please upload a CSV file.");
+        }
+
+        try (Reader reader = new BufferedReader(
+                new InputStreamReader(
+                        file.getInputStream(), StandardCharsets.UTF_8));
+                CSVParser parser = CSVFormat.DEFAULT.builder()
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setIgnoreEmptyLines(true)
+                        .get()
+                        .parse(reader)) {
+
+            List<String> columns = new ArrayList<>(parser.getHeaderNames());
+
+            if (columns.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "The CSV file has no header row.");
+            }
+
+            List<Map<String, String>> rows = new ArrayList<>();
+
+            for (CSVRecord record : parser) {
+                Map<String, String> row = new HashMap<>();
+
+                for (String column : columns) {
+                    row.put(column,
+                            record.isMapped(column) ? record.get(column) : "");
+                }
+
+                rows.add(row);
+            }
+
+            // Publish the new dataset only after parsing succeeds.
+            headers = Collections.unmodifiableList(columns);
+            accidents = Collections.unmodifiableList(rows);
+
+            return summary();
+
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Could not read the CSV. Check its headers and format.");
+        }
+    }
+
+    @GetMapping("/summary")
+    public Map<String, Object> summary() {
+        List<Map<String, String>> data = accidents;
+        List<String> cols = headers;
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalAccidents", data.size());
+        result.put("columns", new ArrayList<>(cols));
+        result.put("records", new ArrayList<>(
+                data.subList(0, Math.min(10, data.size()))));
+        result.put("loaded", !data.isEmpty());
+
+        String severity = findColumn(cols,
+                "severity", "accident_severity", "severity_level");
+        String location = findColumn(cols,
+                "city", "location", "district", "area");
+        String time = findColumn(cols,
+                "time", "accident_time", "hour");
+
+        Map<String, Long> severityCounts = new TreeMap<>();
+        Map<String, Long> locationCounts = new TreeMap<>();
+        Map<String, Long> timeCounts = new TreeMap<>();
+
+        // Calculate all summary statistics in one pass.
+        for (Map<String, String> row : data) {
+            addCount(severityCounts, row, severity);
+            addCount(locationCounts, row, location);
+            addCount(timeCounts, row, time);
+        }
+
+        result.put("severity", severityCounts);
+        result.put("location", locationCounts);
+        result.put("time", timeCounts);
+        result.put("message", data.isEmpty()
+                ? "Upload a CSV file to begin analysis."
+                : "Analysis is based on the uploaded records.");
+
+        return result;
+    }
+
+    @GetMapping("/records")
+    public Map<String, Object> records(
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        List<Map<String, String>> data = accidents;
+        String query = search.toLowerCase(Locale.ROOT);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+
+        List<Map<String, String>> filtered = new ArrayList<>();
+
+        for (Map<String, String> row : data) {
+            boolean matches = query.isEmpty();
+
+            if (!matches) {
+                for (String value : row.values()) {
+                    if (value.toLowerCase(Locale.ROOT).contains(query)) {
+                        matches = true;
+                        break;
+                    }
+                }
+            }
+
+            if (matches)
+                filtered.add(row);
+        }
+
+        int start = (int) Math.min(
+                (long) safePage * safeSize, filtered.size());
+        int end = Math.min(start + safeSize, filtered.size());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("records", filtered.subList(start, end));
+        result.put("total", filtered.size());
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        result.put("columns", new ArrayList<>(headers));
+
+        return result;
+    }
+
+    private static String findColumn(
+            List<String> headers, String... candidates) {
+
+        for (String header : headers) {
+            String normalized = normalize(header);
+
+            for (String candidate : candidates) {
+                if (normalized.equals(normalize(candidate))) {
+                    return header;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static String normalize(String value) {
+        return value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]", "");
+    }
+
+    private static void addCount(
+            Map<String, Long> counts,
+            Map<String, String> row,
+            String column) {
+
+        if (column == null)
+            return;
+
+        String value = row.getOrDefault(column, "").trim();
+
+        if (!value.isEmpty()) {
+            counts.merge(value, 1L, Long::sum);
+        }
+    }
+}

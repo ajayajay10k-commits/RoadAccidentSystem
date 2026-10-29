@@ -12,17 +12,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @CrossOrigin(origins = {
-    "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app",
-    "https://road-accident-system-seven.vercel.app"
+        "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app",
+        "https://road-accident-system-seven.vercel.app"
 })
 @RestController
 @RequestMapping("/api")
 public class AccidentController {
 
-    private volatile List<Map<String, String>> accidents =
-        new ArrayList<>();
+    private volatile List<Map<String, String>> accidents = new ArrayList<>();
 
     private volatile List<String> headers = new ArrayList<>();
+
+    private static final List<String> WEATHER_TYPES = Arrays.asList("Rain", "Cloudy", "Clear", "Dust Storm");
 
     @PostMapping("/upload")
     public Map<String, Object> upload(
@@ -30,7 +31,8 @@ public class AccidentController {
 
         if (file.isEmpty()) {
             throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST, "Please select a CSV file.");
+                    HttpStatus.BAD_REQUEST,
+                    "Please select a CSV file.");
         }
 
         String filename = file.getOriginalFilename();
@@ -38,42 +40,46 @@ public class AccidentController {
         if (filename == null ||
                 !filename.toLowerCase(Locale.ROOT).endsWith(".csv")) {
             throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST, "Please upload a CSV file.");
+                    HttpStatus.BAD_REQUEST,
+                    "Please upload a CSV file.");
         }
 
         try (Reader reader = new BufferedReader(
-                    new InputStreamReader(
-                        file.getInputStream(), StandardCharsets.UTF_8));
-             CSVParser parser = CSVFormat.DEFAULT.builder()
-                    .setHeader()
-                    .setSkipHeaderRecord(true)
-                    .setIgnoreEmptyLines(true)
-                    .get()
-                    .parse(reader)) {
+                new InputStreamReader(
+                        file.getInputStream(),
+                        StandardCharsets.UTF_8));
+                CSVParser parser = CSVFormat.DEFAULT.builder()
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setIgnoreEmptyLines(true)
+                        .get()
+                        .parse(reader)) {
 
-            List<String> columns =
-                new ArrayList<>(parser.getHeaderNames());
+            List<String> columns = new ArrayList<>(parser.getHeaderNames());
 
             if (columns.isEmpty()) {
                 throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "The CSV file has no header row.");
+                        HttpStatus.BAD_REQUEST,
+                        "The CSV file has no header row.");
             }
 
             List<Map<String, String>> rows = new ArrayList<>();
 
             for (CSVRecord record : parser) {
-                Map<String, String> row = new HashMap<>();
+                Map<String, String> row = new LinkedHashMap<>();
 
                 for (String column : columns) {
-                    row.put(column,
-                        record.isMapped(column) ? record.get(column) : "");
+                    row.put(
+                            column,
+                            record.isMapped(column)
+                                    ? record.get(column)
+                                    : "");
                 }
 
                 rows.add(row);
             }
 
-            // Publish the new dataset only after parsing succeeds.
+            // Replace the dataset only after parsing succeeds.
             headers = Collections.unmodifiableList(columns);
             accidents = Collections.unmodifiableList(rows);
 
@@ -83,8 +89,8 @@ public class AccidentController {
             throw ex;
         } catch (Exception ex) {
             throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "Could not read the CSV. Check its headers and format.");
+                    HttpStatus.BAD_REQUEST,
+                    "Could not read the CSV. Check its headers and format.");
         }
     }
 
@@ -94,36 +100,90 @@ public class AccidentController {
         List<String> cols = headers;
 
         Map<String, Object> result = new LinkedHashMap<>();
+
         result.put("totalAccidents", data.size());
         result.put("columns", new ArrayList<>(cols));
-        result.put("records", new ArrayList<>(
-            data.subList(0, Math.min(10, data.size()))));
+        result.put(
+                "records",
+                new ArrayList<>(
+                        data.subList(0, Math.min(10, data.size()))));
         result.put("loaded", !data.isEmpty());
 
-        String severity = findColumn(cols,
-            "severity", "accident_severity", "severity_level");
-        String location = findColumn(cols,
-            "city", "location", "district", "area");
-        String time = findColumn(cols,
-            "time", "accident_time", "hour");
+        String severity = findColumn(
+                cols, "severity", "accident_severity", "severity_level");
+
+        String location = findColumn(
+                cols, "city", "location", "district", "area");
+
+        String time = findColumn(
+                cols, "time", "accident_time", "hour");
+
+        String weather = findColumn(
+                cols,
+                "weather",
+                "weather_condition",
+                "weather_conditions",
+                "weathercondition",
+                "weatherconditions");
 
         Map<String, Long> severityCounts = new TreeMap<>();
+
         Map<String, Long> locationCounts = new TreeMap<>();
+
         Map<String, Long> timeCounts = new TreeMap<>();
 
-        // Calculate all summary statistics in one pass.
+        Map<String, Long> weatherCounts = new LinkedHashMap<>();
+
+        Map<String, Map<String, Long>> weatherSeverity = new LinkedHashMap<>();
+
+        for (String condition : WEATHER_TYPES) {
+            weatherCounts.put(condition, 0L);
+            weatherSeverity.put(
+                    condition, new LinkedHashMap<>());
+        }
+
+        // Calculate overview and weather statistics in one pass.
         for (Map<String, String> row : data) {
             addCount(severityCounts, row, severity);
             addCount(locationCounts, row, location);
             addCount(timeCounts, row, time);
+
+            if (weather == null) {
+                continue;
+            }
+
+            String rawWeather = row.getOrDefault(weather, "").trim();
+
+            String condition = normalizeWeather(rawWeather);
+
+            if (condition == null) {
+                continue;
+            }
+
+            weatherCounts.merge(condition, 1L, Long::sum);
+
+            String severityValue = severity == null
+                    ? ""
+                    : row.getOrDefault(severity, "").trim();
+
+            if (!severityValue.isEmpty()) {
+                weatherSeverity
+                        .get(condition)
+                        .merge(severityValue, 1L, Long::sum);
+            }
         }
 
         result.put("severity", severityCounts);
         result.put("location", locationCounts);
         result.put("time", timeCounts);
-        result.put("message", data.isEmpty()
-            ? "Upload a CSV file to begin analysis."
-            : "Analysis is based on the uploaded records.");
+        result.put("weather", weatherCounts);
+        result.put("weatherSeverity", weatherSeverity);
+        result.put("weatherColumn", weather);
+        result.put(
+                "message",
+                data.isEmpty()
+                        ? "Upload a CSV file to begin analysis."
+                        : "Analysis is based on the uploaded records.");
 
         return result;
     }
@@ -135,6 +195,7 @@ public class AccidentController {
             @RequestParam(defaultValue = "10") int size) {
 
         List<Map<String, String>> data = accidents;
+
         String query = search.toLowerCase(Locale.ROOT);
         int safePage = Math.max(0, page);
         int safeSize = Math.max(1, Math.min(size, 100));
@@ -146,21 +207,28 @@ public class AccidentController {
 
             if (!matches) {
                 for (String value : row.values()) {
-                    if (value.toLowerCase(Locale.ROOT).contains(query)) {
+                    if (value != null &&
+                            value.toLowerCase(Locale.ROOT)
+                                    .contains(query)) {
                         matches = true;
                         break;
                     }
                 }
             }
 
-            if (matches) filtered.add(row);
+            if (matches) {
+                filtered.add(row);
+            }
         }
 
         int start = (int) Math.min(
-            (long) safePage * safeSize, filtered.size());
+                (long) safePage * safeSize,
+                filtered.size());
+
         int end = Math.min(start + safeSize, filtered.size());
 
         Map<String, Object> result = new LinkedHashMap<>();
+
         result.put("records", filtered.subList(start, end));
         result.put("total", filtered.size());
         result.put("page", safePage);
@@ -171,7 +239,8 @@ public class AccidentController {
     }
 
     private static String findColumn(
-            List<String> headers, String... candidates) {
+            List<String> headers,
+            String... candidates) {
 
         for (String header : headers) {
             String normalized = normalize(header);
@@ -187,8 +256,34 @@ public class AccidentController {
     }
 
     private static String normalize(String value) {
+        if (value == null) {
+            return "";
+        }
+
         return value.toLowerCase(Locale.ROOT)
-            .replaceAll("[^a-z0-9]", "");
+                .replaceAll("[^a-z0-9]", "");
+    }
+
+    private static String normalizeWeather(String value) {
+        String normalized = normalize(value);
+
+        if (normalized.contains("duststorm")) {
+            return "Dust Storm";
+        }
+
+        if (normalized.contains("rain")) {
+            return "Rain";
+        }
+
+        if (normalized.contains("cloud")) {
+            return "Cloudy";
+        }
+
+        if (normalized.contains("clear")) {
+            return "Clear";
+        }
+
+        return null;
     }
 
     private static void addCount(
@@ -196,7 +291,9 @@ public class AccidentController {
             Map<String, String> row,
             String column) {
 
-        if (column == null) return;
+        if (column == null) {
+            return;
+        }
 
         String value = row.getOrDefault(column, "").trim();
 

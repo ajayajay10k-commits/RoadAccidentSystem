@@ -1,16 +1,21 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b1020">
     <title>AccidentIQ | Road Safety Intelligence</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
+
 <body>
 <div class="app-shell">
+
+    <!-- SIDEBAR -->
     <aside class="sidebar">
         <a class="brand" href="#overview" aria-label="AccidentIQ home">
             <span class="brand-icon">A</span>
@@ -18,21 +23,36 @@
         </a>
 
         <div class="side-label">WORKSPACE</div>
+
         <nav class="side-nav" aria-label="Main navigation">
             <a class="nav-link active" href="#overview" title="Overview">
-                <span class="nav-icon">▦</span><span class="nav-text">Overview</span>
+                <span class="nav-icon">▦</span>
+                <span class="nav-text">Overview</span>
             </a>
+
             <a class="nav-link" href="#charts" title="Analytics">
-                <span class="nav-icon">⌁</span><span class="nav-text">Analytics</span>
+                <span class="nav-icon">⌁</span>
+                <span class="nav-text">Analytics</span>
             </a>
+
+            <a class="nav-link" href="#weather" title="Weather Analysis">
+                <span class="nav-icon">☁</span>
+                <span class="nav-text">Weather Analysis</span>
+            </a>
+
             <a class="nav-link" href="#severityPanel" title="Severity">
-                <span class="nav-icon">◉</span><span class="nav-text">Severity</span>
+                <span class="nav-icon">◉</span>
+                <span class="nav-text">Severity</span>
             </a>
+
             <a class="nav-link" href="#locationPanel" title="Locations">
-                <span class="nav-icon">⌖</span><span class="nav-text">Locations</span>
+                <span class="nav-icon">⌖</span>
+                <span class="nav-text">Locations</span>
             </a>
+
             <a class="nav-link" href="#records" title="Data records">
-                <span class="nav-icon">▤</span><span class="nav-text">Records</span>
+                <span class="nav-icon">▤</span>
+                <span class="nav-text">Records</span>
             </a>
         </nav>
 
@@ -42,151 +62,471 @@
         </div>
     </aside>
 
+    <!-- MAIN CONTENT -->
     <main class="main-content">
+
+        <!-- TOP BAR -->
         <header class="topbar">
             <div class="topbar-title">
                 <div class="eyebrow">ROAD SAFETY INTELLIGENCE</div>
                 <h1>Accident Overview</h1>
                 <p>Understand accident patterns through your data.</p>
             </div>
+
             <div class="topbar-actions">
-                <span class="status"><span></span> Analysis workspace</span>
-                <label class="upload-button" for="csvFile">＋ Upload CSV</label>
-                <input id="csvFile" type="file" accept=".csv,text/csv" hidden>
+                <span class="status">
+                    <span></span> Analysis workspace
+                </span>
+
+                <label class="upload-button" for="csvFile">
+                    ＋ Upload CSV
+                </label>
+
+                <input
+                    id="csvFile"
+                    type="file"
+                    accept=".csv,text/csv"
+                    hidden
+                >
             </div>
         </header>
 
+        <!-- UPLOAD FEEDBACK -->
         <div class="upload-feedback" id="uploadNote" role="status">
             Upload a CSV file to begin. Your data is processed in memory.
         </div>
 
-        <section class="stats-grid" id="overview" aria-label="Accident statistics">
-            <article class="stat-card stat-cyan">
-                <div class="stat-top">
-                    <span class="stat-label">TOTAL ACCIDENTS</span>
-                    <span class="stat-icon">↗</span>
-                </div>
-                <div class="stat-value" id="totalAccidents">—</div>
-                <div class="stat-foot">Total records in your dataset</div>
-            </article>
-            <article class="stat-card stat-red">
-                <div class="stat-top">
-                    <span class="stat-label">SEVERITY CATEGORIES</span>
-                    <span class="stat-icon">◉</span>
-                </div>
-                <div class="stat-value" id="severityTotal">—</div>
-                <div class="stat-foot">Distinct severity values found</div>
-            </article>
-            <article class="stat-card stat-purple">
-                <div class="stat-top">
-                    <span class="stat-label">LOCATIONS FOUND</span>
-                    <span class="stat-icon">⌖</span>
-                </div>
-                <div class="stat-value" id="locationTotal">—</div>
-                <div class="stat-foot">Distinct locations in your data</div>
-            </article>
-            <article class="stat-card stat-blue">
-                <div class="stat-top">
-                    <span class="stat-label">DATA FIELDS</span>
-                    <span class="stat-icon">▤</span>
-                </div>
-                <div class="stat-value" id="columnTotal">—</div>
-                <div class="stat-foot">Columns detected in your CSV</div>
-            </article>
-        </section>
+        <!-- OVERVIEW PAGE -->
+        <div id="overviewPage" class="dashboard-page">
 
-        <section class="section-heading" id="charts">
-            <div>
-                <div class="eyebrow">HISTORICAL DATA ANALYSIS</div>
-                <h2>Accident Trends</h2>
-                <p class="section-description">Explore patterns across the available records.</p>
-            </div>
-            <span class="live-tag"><span></span> CSV-DRIVEN</span>
-        </section>
+            <section class="stats-grid" id="overview" aria-label="Accident statistics">
 
-        <section class="panel trend-panel">
-            <div class="panel-heading">
+                <article class="stat-card stat-cyan">
+                    <div class="stat-top">
+                        <span class="stat-label">TOTAL ACCIDENTS</span>
+                        <span class="stat-icon">↗</span>
+                    </div>
+                    <div class="stat-value" id="totalAccidents">—</div>
+                    <div class="stat-foot">Total records in your dataset</div>
+                </article>
+
+                <article class="stat-card stat-red">
+                    <div class="stat-top">
+                        <span class="stat-label">SEVERITY CATEGORIES</span>
+                        <span class="stat-icon">◉</span>
+                    </div>
+                    <div class="stat-value" id="severityTotal">—</div>
+                    <div class="stat-foot">Distinct severity values found</div>
+                </article>
+
+                <article class="stat-card stat-purple">
+                    <div class="stat-top">
+                        <span class="stat-label">LOCATIONS FOUND</span>
+                        <span class="stat-icon">⌖</span>
+                    </div>
+                    <div class="stat-value" id="locationTotal">—</div>
+                    <div class="stat-foot">Distinct locations in your data</div>
+                </article>
+
+                <article class="stat-card stat-blue">
+                    <div class="stat-top">
+                        <span class="stat-label">DATA FIELDS</span>
+                        <span class="stat-icon">▤</span>
+                    </div>
+                    <div class="stat-value" id="columnTotal">—</div>
+                    <div class="stat-foot">Columns detected in your CSV</div>
+                </article>
+
+            </section>
+
+            <!-- ACCIDENT TRENDS -->
+            <section class="section-heading" id="charts">
                 <div>
-                    <h3>Accidents over time</h3>
-                    <p>Based on the time values available in your dataset</p>
+                    <div class="eyebrow">HISTORICAL DATA ANALYSIS</div>
+                    <h2>Accident Trends</h2>
+                    <p class="section-description">
+                        Explore patterns across the available records.
+                    </p>
                 </div>
-                <span class="chart-mark">TREND</span>
-            </div>
-            <div class="chart-wrap time-chart">
-                <canvas id="timeChart"></canvas>
-            </div>
-            <p class="chart-empty" id="timeEmpty">Upload a CSV containing a recognised time column to display this chart.</p>
-        </section>
 
-        <section class="section-heading">
-            <div>
-                <div class="eyebrow">DETAILED BREAKDOWN</div>
-                <h2>Accident Insights</h2>
-                <p class="section-description">Compare reported severity and frequently occurring locations.</p>
-            </div>
-        </section>
+                <span class="live-tag">
+                    <span></span> CSV-DRIVEN
+                </span>
+            </section>
 
-        <section class="charts-grid">
-            <article class="panel" id="severityPanel">
+            <section class="panel trend-panel">
                 <div class="panel-heading">
                     <div>
-                        <h3>Accidents by severity</h3>
-                        <p>Distribution across reported categories</p>
+                        <h3>Accidents over time</h3>
+                        <p>Based on the time values available in your dataset</p>
+                    </div>
+                    <span class="chart-mark">TREND</span>
+                </div>
+
+                <div class="chart-wrap time-chart">
+                    <canvas id="timeChart"></canvas>
+                </div>
+
+                <p class="chart-empty" id="timeEmpty">
+                    Upload a CSV containing a recognised time column to display this chart.
+                </p>
+            </section>
+
+            <!-- ACCIDENT INSIGHTS -->
+            <section class="section-heading">
+                <div>
+                    <div class="eyebrow">DETAILED BREAKDOWN</div>
+                    <h2>Accident Insights</h2>
+                    <p class="section-description">
+                        Compare reported severity and frequently occurring locations.
+                    </p>
+                </div>
+            </section>
+
+            <section class="charts-grid">
+
+                <article class="panel" id="severityPanel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Accidents by severity</h3>
+                            <p>Distribution across reported categories</p>
+                        </div>
+                        <span class="chart-mark">SEVERITY</span>
+                    </div>
+
+                    <div class="chart-wrap">
+                        <canvas id="severityChart"></canvas>
+                    </div>
+
+                    <p class="chart-empty" id="severityEmpty">
+                        A recognised severity column is needed for this chart.
+                    </p>
+                </article>
+
+                <article class="panel" id="locationPanel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Accidents by location</h3>
+                            <p>Most frequently reported locations</p>
+                        </div>
+                        <span class="chart-mark">LOCATIONS</span>
+                    </div>
+
+                    <div class="chart-wrap">
+                        <canvas id="locationChart"></canvas>
+                    </div>
+
+                    <p class="chart-empty" id="locationEmpty">
+                        A recognised location column is needed for this chart.
+                    </p>
+                </article>
+
+            </section>
+
+            <!-- RECORDS PAGE SECTION -->
+            <section class="section-heading records-heading" id="records">
+                <div>
+                    <div class="eyebrow">DATA EXPLORER</div>
+                    <h2>Accident Records</h2>
+                    <p class="section-description">
+                        Search and inspect the rows from your uploaded dataset.
+                    </p>
+                </div>
+
+                <span class="record-count" id="recordCount">0 records</span>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="table-toolbar">
+                    <input
+                        id="searchInput"
+                        class="search-box"
+                        type="search"
+                        placeholder="Search accident records..."
+                        aria-label="Search records"
+                    >
+
+                    <button
+                        id="refreshButton"
+                        class="secondary-button"
+                        type="button"
+                    >
+                        ↻ Refresh
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle" id="recordsTable">
+                        <thead>
+                            <tr>
+                                <th>RECORDS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="empty-cell">
+                                    Upload a CSV file to see your records here.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-bar">
+                    <span id="pageInfo">No records loaded</span>
+
+                    <div>
+                        <button
+                            id="prevPage"
+                            class="secondary-button"
+                            type="button"
+                        >
+                            ← Previous
+                        </button>
+
+                        <button
+                            id="nextPage"
+                            class="secondary-button"
+                            type="button"
+                        >
+                            Next →
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- WEATHER ANALYSIS PAGE -->
+        <div id="weatherPage" class="dashboard-page weather-page" hidden>
+
+            <section class="section-heading">
+                <div>
+                    <div class="eyebrow">WEATHER & ROAD SAFETY</div>
+                    <h2>Weather Analysis</h2>
+                    <p class="section-description">
+                        Analyse accident records by rain, cloudy, clear and dust storm conditions.
+                    </p>
+                </div>
+
+                <span class="live-tag">
+                    <span></span> CSV-DRIVEN
+                </span>
+            </section>
+
+            <!-- WEATHER SUMMARY CARDS -->
+            <section class="weather-cards" aria-label="Weather accident summary">
+
+                <article class="stat-card stat-blue">
+                    <div class="stat-top">
+                        <span class="stat-label">RAIN</span>
+                        <span class="stat-icon">🌧</span>
+                    </div>
+                    <div class="stat-value" id="rainCount">—</div>
+                    <div class="stat-foot" id="rainPercent">
+                        Accident records in rain
+                    </div>
+                </article>
+
+                <article class="stat-card stat-cyan">
+                    <div class="stat-top">
+                        <span class="stat-label">CLOUDY</span>
+                        <span class="stat-icon">☁</span>
+                    </div>
+                    <div class="stat-value" id="cloudyCount">—</div>
+                    <div class="stat-foot" id="cloudyPercent">
+                        Accident records in cloudy weather
+                    </div>
+                </article>
+
+                <article class="stat-card stat-purple">
+                    <div class="stat-top">
+                        <span class="stat-label">CLEAR</span>
+                        <span class="stat-icon">☀</span>
+                    </div>
+                    <div class="stat-value" id="clearCount">—</div>
+                    <div class="stat-foot" id="clearPercent">
+                        Accident records in clear weather
+                    </div>
+                </article>
+
+                <article class="stat-card stat-red">
+                    <div class="stat-top">
+                        <span class="stat-label">DUST STORM</span>
+                        <span class="stat-icon">🌪</span>
+                    </div>
+                    <div class="stat-value" id="dustCount">—</div>
+                    <div class="stat-foot" id="dustPercent">
+                        Accident records in dust storms
+                    </div>
+                </article>
+
+            </section>
+
+            <!-- WEATHER CHARTS -->
+            <section class="charts-grid weather-charts">
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Accidents by weather condition</h3>
+                            <p>Number of accidents recorded in each condition</p>
+                        </div>
+                        <span class="chart-mark">WEATHER</span>
+                    </div>
+
+                    <div class="chart-wrap">
+                        <canvas id="weatherChart"></canvas>
+                    </div>
+
+                    <p class="chart-empty" id="weatherEmpty">
+                        Upload a CSV containing a recognised weather column to display this chart.
+                    </p>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-heading">
+                        <div>
+                            <h3>Weather comparison</h3>
+                            <p>Compare the proportion of accidents across conditions</p>
+                        </div>
+                        <span class="chart-mark">COMPARISON</span>
+                    </div>
+
+                    <div class="chart-wrap">
+                        <canvas id="weatherPercentChart"></canvas>
+                    </div>
+
+                    <p class="chart-empty" id="weatherPercentEmpty">
+                        Weather data will appear here after a CSV is uploaded.
+                    </p>
+                </article>
+
+            </section>
+
+            <!-- SEVERITY AND WEATHER -->
+            <section class="panel weather-severity-panel">
+                <div class="panel-heading">
+                    <div>
+                        <h3>Accident severity by weather</h3>
+                        <p>Explore recorded severity categories under different weather conditions</p>
                     </div>
                     <span class="chart-mark">SEVERITY</span>
                 </div>
-                <div class="chart-wrap"><canvas id="severityChart"></canvas></div>
-                <p class="chart-empty" id="severityEmpty">A recognised severity column is needed for this chart.</p>
-            </article>
 
-            <article class="panel" id="locationPanel">
+                <div class="chart-wrap">
+                    <canvas id="weatherSeverityChart"></canvas>
+                </div>
+
+                <p class="chart-empty" id="weatherSeverityEmpty">
+                    A recognised weather column and severity column are required for this chart.
+                </p>
+            </section>
+
+            <!-- WEATHER INSIGHTS -->
+            <section class="panel weather-insights-panel">
                 <div class="panel-heading">
                     <div>
-                        <h3>Accidents by location</h3>
-                        <p>Most frequently reported locations</p>
+                        <h3>Weather insights</h3>
+                        <p>Summary calculated from your uploaded accident records</p>
                     </div>
-                    <span class="chart-mark">LOCATIONS</span>
                 </div>
-                <div class="chart-wrap"><canvas id="locationChart"></canvas></div>
-                <p class="chart-empty" id="locationEmpty">A recognised location column is needed for this chart.</p>
-            </article>
-        </section>
 
-        <section class="section-heading records-heading" id="records">
-            <div>
-                <div class="eyebrow">DATA EXPLORER</div>
-                <h2>Accident Records</h2>
-                <p class="section-description">Search and inspect the rows from your uploaded dataset.</p>
-            </div>
-            <span class="record-count" id="recordCount">0 records</span>
-        </section>
+                <div
+                    id="weatherInsights"
+                    class="weather-insights"
+                    aria-live="polite"
+                >
+                    Upload a CSV file to generate weather insights.
+                </div>
+            </section>
 
-        <section class="panel table-panel">
-            <div class="table-toolbar">
-                <input id="searchInput" class="search-box" type="search"
-                       placeholder="Search accident records..." aria-label="Search records">
-                <button id="refreshButton" class="secondary-button" type="button">↻ Refresh</button>
-            </div>
-            <div class="table-responsive">
-                <table class="table align-middle" id="recordsTable">
-                    <thead><tr><th>RECORDS</th></tr></thead>
-                    <tbody>
-                        <tr><td class="empty-cell">Upload a CSV file to see your records here.</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="pagination-bar">
-                <span id="pageInfo">No records loaded</span>
+            <!-- WEATHER DATA TABLE -->
+            <section class="section-heading">
                 <div>
-                    <button id="prevPage" class="secondary-button" type="button">← Previous</button>
-                    <button id="nextPage" class="secondary-button" type="button">Next →</button>
+                    <div class="eyebrow">WEATHER DATA EXPLORER</div>
+                    <h2>Weather Records</h2>
+                    <p class="section-description">
+                        View the uploaded accident records associated with weather conditions.
+                    </p>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <footer><strong>AccidentIQ</strong><span>·</span> Road Accident Data Analysis</footer>
+            <section class="panel table-panel">
+                <div class="table-responsive">
+                    <table class="table align-middle" id="weatherRecordsTable">
+                        <thead>
+                            <tr>
+                                <th>WEATHER RECORDS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="empty-cell">
+                                    Upload a CSV file to see weather-related records.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- FOOTER -->
+        <footer>
+            <strong>AccidentIQ</strong>
+            <span>·</span>
+            Road Accident Data Analysis
+        </footer>
+
     </main>
 </div>
+
 <script src="/js/dashboard.js"></script>
+
+<!-- WEATHER PAGE NAVIGATION -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const navLinks = document.querySelectorAll(".side-nav .nav-link");
+    const overviewPage = document.getElementById("overviewPage");
+    const weatherPage = document.getElementById("weatherPage");
+
+    function showPage() {
+        const hash = window.location.hash || "#overview";
+        const isWeatherPage = hash === "#weather";
+
+        overviewPage.hidden = isWeatherPage;
+        weatherPage.hidden = !isWeatherPage;
+
+        overviewPage.classList.toggle("page-active", !isWeatherPage);
+        weatherPage.classList.toggle("page-active", isWeatherPage);
+
+        navLinks.forEach(function (link) {
+            link.classList.toggle(
+                "active",
+                link.getAttribute("href") === hash
+            );
+        });
+
+        const title = document.querySelector(".topbar-title h1");
+        const description = document.querySelector(".topbar-title p");
+
+        if (isWeatherPage) {
+            title.textContent = "Weather Analysis";
+            description.textContent =
+                "Explore accident patterns across weather conditions.";
+        } else {
+            title.textContent = "Accident Overview";
+            description.textContent =
+                "Understand accident patterns through your data.";
+        }
+    }
+
+    window.addEventListener("hashchange", showPage);
+    showPage();
+});
+</script>
+
 </body>
 </html>
