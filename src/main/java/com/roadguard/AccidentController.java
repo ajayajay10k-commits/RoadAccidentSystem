@@ -12,7 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @CrossOrigin(origins = {
-    "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app"
+    "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app",
+    "https://road-accident-system-seven.vercel.app"
 })
 @RestController
 @RequestMapping("/api")
