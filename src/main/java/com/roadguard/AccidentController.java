@@ -1,32 +1,27 @@
 
 package com.roadguard;
 
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.csv.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-@CrossOrigin(
-    origins = {
-        "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app"
-    }
-)
+@CrossOrigin(origins = {
+    "https://road-accident-system-4fu7xmy3v-aiconnect1.vercel.app"
+})
 @RestController
 @RequestMapping("/api")
 public class AccidentController {
 
-    private final List<Map<String, String>> accidents =
+    private volatile List<Map<String, String>> accidents =
         new ArrayList<>();
 
-    private List<String> headers = new ArrayList<>();
+    private volatile List<String> headers = new ArrayList<>();
 
     @PostMapping("/upload")
     public Map<String, Object> upload(
@@ -34,34 +29,26 @@ public class AccidentController {
 
         if (file.isEmpty()) {
             throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "Please select a CSV file."
-            );
+                HttpStatus.BAD_REQUEST, "Please select a CSV file.");
         }
 
-        if (file.getOriginalFilename() == null
-                || !file.getOriginalFilename()
-                    .toLowerCase(Locale.ROOT).endsWith(".csv")) {
+        String filename = file.getOriginalFilename();
+
+        if (filename == null ||
+                !filename.toLowerCase(Locale.ROOT).endsWith(".csv")) {
             throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "Please upload a CSV file."
-            );
+                HttpStatus.BAD_REQUEST, "Please upload a CSV file.");
         }
 
-        try (
-            Reader reader = new InputStreamReader(
-                file.getInputStream(),
-                StandardCharsets.UTF_8
-            );
-            CSVParser parser = CSVFormat.DEFAULT.builder()
-                .setHeader()
-                .setSkipHeaderRecord(true)
-                .setIgnoreEmptyLines(true)
-                .get()
-                .parse(reader)
-        ) {
-            List<Map<String, String>> rows =
-                new ArrayList<>();
+        try (Reader reader = new BufferedReader(
+                    new InputStreamReader(
+                        file.getInputStream(), StandardCharsets.UTF_8));
+             CSVParser parser = CSVFormat.DEFAULT.builder()
+                    .setHeader()
+                    .setSkipHeaderRecord(true)
+                    .setIgnoreEmptyLines(true)
+                    .get()
+                    .parse(reader)) {
 
             List<String> columns =
                 new ArrayList<>(parser.getHeaderNames());
@@ -69,31 +56,25 @@ public class AccidentController {
             if (columns.isEmpty()) {
                 throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "The CSV file has no header row."
-                );
+                    "The CSV file has no header row.");
             }
 
+            List<Map<String, String>> rows = new ArrayList<>();
+
             for (CSVRecord record : parser) {
-                Map<String, String> row =
-                    new LinkedHashMap<>();
+                Map<String, String> row = new HashMap<>();
 
                 for (String column : columns) {
-                    row.put(
-                        column,
-                        record.isMapped(column)
-                            ? record.get(column)
-                            : ""
-                    );
+                    row.put(column,
+                        record.isMapped(column) ? record.get(column) : "");
                 }
 
                 rows.add(row);
             }
 
-            synchronized (accidents) {
-                headers = columns;
-                accidents.clear();
-                accidents.addAll(rows);
-            }
+            // Publish the new dataset only after parsing succeeds.
+            headers = Collections.unmodifiableList(columns);
+            accidents = Collections.unmodifiableList(rows);
 
             return summary();
 
@@ -102,69 +83,48 @@ public class AccidentController {
         } catch (Exception ex) {
             throw new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                "Could not read the CSV. Check its headers and format."
-            );
+                "Could not read the CSV. Check its headers and format.");
         }
     }
 
     @GetMapping("/summary")
     public Map<String, Object> summary() {
-        synchronized (accidents) {
-            Map<String, Object> result =
-                new LinkedHashMap<>();
+        List<Map<String, String>> data = accidents;
+        List<String> cols = headers;
 
-            result.put("totalAccidents", accidents.size());
-            result.put("columns", new ArrayList<>(headers));
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalAccidents", data.size());
+        result.put("columns", new ArrayList<>(cols));
+        result.put("records", new ArrayList<>(
+            data.subList(0, Math.min(10, data.size()))));
+        result.put("loaded", !data.isEmpty());
 
-            result.put(
-                "records",
-                new ArrayList<>(
-                    accidents.subList(
-                        0,
-                        Math.min(10, accidents.size())
-                    )
-                )
-            );
+        String severity = findColumn(cols,
+            "severity", "accident_severity", "severity_level");
+        String location = findColumn(cols,
+            "city", "location", "district", "area");
+        String time = findColumn(cols,
+            "time", "accident_time", "hour");
 
-            result.put("loaded", !accidents.isEmpty());
+        Map<String, Long> severityCounts = new TreeMap<>();
+        Map<String, Long> locationCounts = new TreeMap<>();
+        Map<String, Long> timeCounts = new TreeMap<>();
 
-            result.put(
-                "severity",
-                countBy(findColumn(
-                    "severity",
-                    "accident_severity",
-                    "severity_level"
-                ))
-            );
-
-            result.put(
-                "location",
-                countBy(findColumn(
-                    "city",
-                    "location",
-                    "district",
-                    "area"
-                ))
-            );
-
-            result.put(
-                "time",
-                countBy(findColumn(
-                    "time",
-                    "accident_time",
-                    "hour"
-                ))
-            );
-
-            result.put(
-                "message",
-                accidents.isEmpty()
-                    ? "Upload a CSV file to begin analysis."
-                    : "Analysis is based on the uploaded records."
-            );
-
-            return result;
+        // Calculate all summary statistics in one pass.
+        for (Map<String, String> row : data) {
+            addCount(severityCounts, row, severity);
+            addCount(locationCounts, row, location);
+            addCount(timeCounts, row, time);
         }
+
+        result.put("severity", severityCounts);
+        result.put("location", locationCounts);
+        result.put("time", timeCounts);
+        result.put("message", data.isEmpty()
+            ? "Upload a CSV file to begin analysis."
+            : "Analysis is based on the uploaded records.");
+
+        return result;
     }
 
     @GetMapping("/records")
@@ -173,61 +133,50 @@ public class AccidentController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        synchronized (accidents) {
-            int safePage = Math.max(0, page);
-            int safeSize = Math.max(1, Math.min(size, 100));
+        List<Map<String, String>> data = accidents;
+        String query = search.toLowerCase(Locale.ROOT);
+        int safePage = Math.max(0, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
 
-            String query = search.toLowerCase(Locale.ROOT);
+        List<Map<String, String>> filtered = new ArrayList<>();
 
-            List<Map<String, String>> filtered =
-                accidents.stream()
-                    .filter(row -> row.values().stream()
-                        .anyMatch(value ->
-                            value.toLowerCase(Locale.ROOT)
-                                .contains(query)
-                        )
-                    )
-                    .toList();
+        for (Map<String, String> row : data) {
+            boolean matches = query.isEmpty();
 
-            int start = (int) Math.min(
-                (long) safePage * safeSize,
-                filtered.size()
-            );
+            if (!matches) {
+                for (String value : row.values()) {
+                    if (value.toLowerCase(Locale.ROOT).contains(query)) {
+                        matches = true;
+                        break;
+                    }
+                }
+            }
 
-            int end = Math.min(
-                start + safeSize,
-                filtered.size()
-            );
-
-            Map<String, Object> result =
-                new LinkedHashMap<>();
-
-            result.put(
-                "records",
-                filtered.subList(start, end)
-            );
-
-            result.put("total", filtered.size());
-            result.put("page", safePage);
-            result.put("size", safeSize);
-            result.put("columns", new ArrayList<>(headers));
-
-            return result;
+            if (matches) filtered.add(row);
         }
+
+        int start = (int) Math.min(
+            (long) safePage * safeSize, filtered.size());
+        int end = Math.min(start + safeSize, filtered.size());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("records", filtered.subList(start, end));
+        result.put("total", filtered.size());
+        result.put("page", safePage);
+        result.put("size", safeSize);
+        result.put("columns", new ArrayList<>(headers));
+
+        return result;
     }
 
-    private String findColumn(String... candidates) {
+    private static String findColumn(
+            List<String> headers, String... candidates) {
+
         for (String header : headers) {
-            String normalized = header
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]", "");
+            String normalized = normalize(header);
 
             for (String candidate : candidates) {
-                String normalizedCandidate = candidate
-                    .toLowerCase(Locale.ROOT)
-                    .replaceAll("[^a-z0-9]", "");
-
-                if (normalized.equals(normalizedCandidate)) {
+                if (normalized.equals(normalize(candidate))) {
                     return header;
                 }
             }
@@ -236,21 +185,22 @@ public class AccidentController {
         return null;
     }
 
-    private Map<String, Long> countBy(String column) {
-        Map<String, Long> counts = new TreeMap<>();
+    private static String normalize(String value) {
+        return value.toLowerCase(Locale.ROOT)
+            .replaceAll("[^a-z0-9]", "");
+    }
 
-        if (column == null) {
-            return counts;
+    private static void addCount(
+            Map<String, Long> counts,
+            Map<String, String> row,
+            String column) {
+
+        if (column == null) return;
+
+        String value = row.getOrDefault(column, "").trim();
+
+        if (!value.isEmpty()) {
+            counts.merge(value, 1L, Long::sum);
         }
-
-        for (Map<String, String> row : accidents) {
-            String value = row.getOrDefault(column, "").trim();
-
-            if (!value.isEmpty()) {
-                counts.merge(value, 1L, Long::sum);
-            }
-        }
-
-        return counts;
     }
 }
